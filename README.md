@@ -1,4 +1,4 @@
-# saver-app-docs
+# Saver documentation
 
 Public documentation for [Saver](https://saver-app.com), the todos, habits, and bookmarks app.
 
