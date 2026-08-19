@@ -1,0 +1,21 @@
+---
+title: Features
+description: Todos, bookmarks, habits, and shared spaces.
+---
+
+import { findSiblings } from 'fumadocs-core/page-tree';
+import { source } from '@/lib/source';
+
+<Cards>
+  {findSiblings(source.getPageTree(), '/features')
+    .filter((peer) => peer.type === 'page' || peer.type === 'folder')
+    .map((peer) => (
+      <Card
+        key={peer.type === 'folder' ? peer.$id ?? peer.name.toString() : peer.url}
+        title={peer.name}
+        href={peer.type === 'folder' ? peer.index?.url : peer.url}
+      >
+        {peer.description ?? peer.index?.description}
+      </Card>
+    ))}
+</Cards>

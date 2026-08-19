@@ -1,0 +1,44 @@
+---
+title: Overview
+description: Tasks, bookmarks, and habits in one place.
+---
+
+import { findSiblings } from 'fumadocs-core/page-tree';
+import { source } from '@/lib/source';
+
+**Saver** is an app for keeping your todos, bookmarks, and habits in one place, on mobile, the web, in your browser, and in Discord.
+
+It works fully offline and locally on your device for free. Subscribe when you want to sync the same data across devices, spaces, and platforms.
+
+New here? Start with [Getting Started](/getting-started).
+
+<Cards>
+  <Card title="iOS" href="https://apps.apple.com/app/id6766563672">
+    Download Saver for iPhone and iPad.
+  </Card>
+  <Card title="Web App" href="https://app.saver-app.com">
+    Use Saver in your browser at app.saver-app.com.
+  </Card>
+  <Card title="Android">
+    Download Saver from Google Play.
+  </Card>
+  <Card title="Browser Extensions" href="/browser-extension">
+    Save bookmarks from Chrome or Safari without leaving the page.
+  </Card>
+</Cards>
+
+## Documentation
+
+<Cards>
+  {findSiblings(source.getPageTree(), '/')
+    .filter((peer) => peer.type === 'page' || peer.type === 'folder')
+    .map((peer) => (
+      <Card
+        key={peer.type === 'folder' ? peer.$id ?? peer.name.toString() : peer.url}
+        title={peer.name}
+        href={peer.type === 'folder' ? peer.index?.url : peer.url}
+      >
+        {peer.description ?? peer.index?.description}
+      </Card>
+    ))}
+</Cards>
