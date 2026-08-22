@@ -1,0 +1,233 @@
+---
+title: reMarkable
+description: Install Saver on a reMarkable tablet, link your account, and capture handwritten todos.
+---
+
+Saver for reMarkable brings your synced todos, bookmarks, habits, and spaces to the tablet. 
+You can create and edit items, complete todos, log habits, and turn selected handwriting into a Saver todo.
+
+This is the official Saver integration. The tablet layer is an unofficial mod built on the community projects
+[xovi](https://github.com/asivery/xovi), [AppLoad](https://github.com/asivery/rm-appload), and [qt-resource-rebuilder](https://github.com/asivery/rm-xovi-extensions).  It is not affiliated with or endorsed by reMarkable.
+
+<Callout title="Source-only preview">
+  Saver for reMarkable does not have a published release or Vellum package
+  yet. For now, you need to build it on a computer and install it over SSH.
+</Callout>
+
+<Callout title="Developer Mode resets the tablet" type="warn">
+  Installation needs root SSH access and runs third-party code inside the
+  tablet's main UI process. On Paper Pro and Paper Pro Move, enabling [Developer Mode](https://developer.remarkable.com/documentation/developer-mode)
+  factory-resets the tablet and weakens its security. Sync or back up your
+  data before enabling it. reMarkable 1 and 2 do not require that Developer
+  Mode step, but the mod is still unofficial and installed at your own risk.
+</Callout>
+
+## Compatibility
+
+| Device | Build | Tested status |
+| --- | --- | --- |
+| Paper Pro | aarch64 | reMarkable OS 3.27.3.0 |
+| Paper Pro Move | aarch64 | Untested (uses the Paper Pro build) |
+| reMarkable 2 | armv7 | reMarkable OS 3.25.0.142 and 3.26.0.68 |
+| reMarkable 1 | armv7 | Untested (uses the reMarkable 2 build) |
+
+The tested AppLoad version is 0.5.3. Firmware updates can break xovi or the
+optional UI patches, even when the native app still uses the same build.
+
+## Before you start
+
+You need:
+
+- A Saver account and internet access on the tablet. All Saver operations and
+  handwriting recognition need internet, normally over Wi-Fi. The USB network
+  at `10.11.99.1` does not provide an internet route by itself.
+- Root SSH access to the tablet. Paper Pro and Paper Pro Move need Developer
+  Mode. reMarkable 1 and 2 expose SSH without it.
+- [Vellum](https://github.com/vellum-dev/vellum) on the tablet. You can use [reManager](https://github.com/rmitchellscott/reManager) on Linux, macOS, or
+  Windows to bootstrap it. As a manual alternative, install xovi and AppLoad,
+  plus qt-resource-rebuilder if you want the optional UI actions.
+- A macOS or Linux computer with Bash, `ssh`, `scp`, Rust, a GNU Linux
+  cross-compiler for the tablet, and Qt 6's `rcc` tool. The installer is tested
+  on macOS. Linux is expected to work but is untested. Native Windows is not
+  currently documented.
+
+The optional sidebar and handwriting actions need qt-resource-rebuilder and
+its one-time hashtable setup. The core AppLoad app works without them.
+
+## Install from source
+
+Start in a clone of the [saver-remarkable repository](https://github.com/Saver-app/saver-remarkable) and run the commands below from its root. 
+In commands that use `TABLET`, replace it with `10.11.99.1` for USB or with the tablet's Wi-Fi address.
+
+<Steps>
+<Step>
+
+**Prepare the tablet**
+
+Connect the tablet over USB, wake it, and confirm that SSH works:
+
+```sh
+ssh root@10.11.99.1 true
+```
+
+The password appears at the bottom of **Copyrights and Licenses** in the tablet's settings. 
+On current Paper Pro software, the full path is
+**Settings → General → Help → About → Copyrights and Licenses**.
+
+The installer automatically tries `~/.ssh/id_remarkable`. Add
+`-i ~/.ssh/id_remarkable` to manual `ssh` commands if that key is not already
+loaded by SSH.
+
+To deploy a Paper Pro or Paper Pro Move over Wi-Fi, first enable Wi-Fi SSH
+while connected over USB:
+
+```sh
+ssh root@10.11.99.1 rm-ssh-over-wlan on
+```
+
+</Step>
+<Step>
+
+**Install the Rust target and cross-linker**
+
+Install the Rust target for your tablet:
+
+```sh
+rustup target add aarch64-unknown-linux-gnu      # Paper Pro / Move
+rustup target add armv7-unknown-linux-gnueabihf  # reMarkable 1 / 2
+```
+
+You also need the matching GNU Linux compiler. On macOS, [messense's cross-toolchains](https://github.com/messense/homebrew-macos-cross-toolchains)
+provide both targets. Configure Cargo in `~/.cargo/config.toml`:
+
+```toml
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-unknown-linux-gnu-gcc"
+
+[target.armv7-unknown-linux-gnueabihf]
+linker = "armv7-unknown-linux-gnueabihf-gcc"
+```
+
+Use an absolute path if the compiler is not on `PATH`. Debian-based Linux
+toolchains commonly name these binaries `aarch64-linux-gnu-gcc` and
+`arm-linux-gnueabihf-gcc` instead.
+
+</Step>
+<Step>
+
+**Install Qt's resource compiler**
+
+Use your system's Qt 6 package when available. On macOS, you can install only
+the required Qt archive:
+
+```sh
+python3 -m pip install aqtinstall
+python3 -m aqt install-qt mac desktop 6.8.2 clang_64 \
+  -O "$HOME/Qt" --archives qtbase
+```
+
+The resulting `rcc` is normally at `$HOME/Qt/6.8.2/macos/libexec/rcc`. On Linux, it is often at
+`/usr/lib/qt6/libexec/rcc`. Use the path supplied by your Qt package.
+
+</Step>
+<Step>
+
+**Build and install Saver**
+
+The installer syntax is `./install-device.sh [host] [target]`. Set `RCC` to
+the path from the previous step:
+
+```sh
+# Paper Pro / Move over USB (the default host and target)
+RCC=/path/to/rcc ./install-device.sh
+
+# Paper Pro / Move over Wi-Fi
+RCC=/path/to/rcc ./install-device.sh 192.168.1.42
+
+# reMarkable 1 / 2 over USB
+RCC=/path/to/rcc ./install-device.sh \
+  10.11.99.1 armv7-unknown-linux-gnueabihf
+```
+
+Use `SSH_KEY=/path/to/private-key` if your key is somewhere other than
+`~/.ssh/id_remarkable`.
+
+The script builds the app, installs missing device components through Vellum,
+copies the app and optional UI patches, and restarts the tablet UI through
+xovi.
+
+To install only the core AppLoad app, without the sidebar or handwriting
+actions:
+
+```sh
+SKIP_QMLDIFF=1 RCC=/path/to/rcc ./install-device.sh
+```
+
+Use this mode if you have the incompatible `convert-to-text-remover` QML mod.
+It does not remove Saver patches from an earlier installation. See [Update or remove](https://github.com/Saver-app/saver-remarkable#update-or-remove)
+before switching an existing installation to core-only mode.
+
+</Step>
+<Step>
+
+**Finish the optional UI integration**
+
+If the installer reports that qt-resource-rebuilder has no hashtable, run:
+
+```sh
+ssh root@TABLET /home/root/xovi/rebuild_hashtable
+```
+
+This restarts the tablet UI and may ask for the device passcode. Run the
+installer once more afterward so it can apply the sidebar and selection-menu
+patches.
+
+</Step>
+</Steps>
+
+## Link your Saver account
+
+1. Make sure the tablet is connected to Wi-Fi.
+2. Open **Saver** from the file-browser sidebar or the AppLoad launcher.
+3. Scan the QR code with another device. Alternatively, open the
+   [Saver web app](https://app.saver-app.com), go to **Settings → reMarkable tablet → Enter code from tablet**, 
+   and enter the 8-character code shown on the tablet.
+4. Approve the connection. The tablet finishes linking and loads your spaces
+   and items automatically.
+
+Pairing codes expire after 10 minutes. Changes made in Saver on another device
+appear when the tablet app opens or when you tap **Refresh**. There is no
+background sync or persistent offline cache on the tablet.
+
+## Capture a handwritten todo
+
+Handwriting capture uses reMarkable's handwriting-recognition service. The
+tablet must be online, signed in to a reMarkable account, and have Saver's
+optional QML patches installed.
+
+1. Select handwritten strokes with the notebook lasso tool.
+2. Tap the Saver checkmark action in the selection menu.
+3. Review the recognized text and choose a Saver space/list, or save directly
+   with the defaults under **Saver → Settings**.
+
+## Troubleshooting
+
+- **Pairing or refresh cannot reach Saver:** connect the tablet itself to
+  Wi-Fi. USB networking supports installation but does not provide internet.
+- **Paper Pro Wi-Fi installation cannot connect:** enable it over USB with
+  `ssh root@10.11.99.1 rm-ssh-over-wlan on`, then retry with the tablet's
+  Wi-Fi address.
+- **The sidebar or handwriting action is missing:** rebuild the hashtable,
+  rerun the installer, and check for `convert-to-text-remover` or a
+  firmware/QML-patch mismatch.
+- **A reinstall appears unchanged:** close Saver completely and reopen it from
+  AppLoad.
+- **Saver opens and immediately closes:** collect recent device logs with:
+
+```sh
+ssh root@TABLET \
+  "journalctl -u xochitl --since '-5min' --no-pager | tail -n 200"
+```
+
+For advanced diagnostics, update and removal instructions, security details,
+and development notes, see the [Saver for reMarkable README](https://github.com/Saver-app/saver-remarkable#readme).
