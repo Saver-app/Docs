@@ -9,11 +9,6 @@ You can create and edit items, complete todos, log habits, and turn selected han
 This is the official Saver integration. The tablet layer is an unofficial mod built on the community projects
 [xovi](https://github.com/asivery/xovi), [AppLoad](https://github.com/asivery/rm-appload), and [qt-resource-rebuilder](https://github.com/asivery/rm-xovi-extensions).  It is not affiliated with or endorsed by reMarkable.
 
-<Callout title="Source-only preview">
-  Saver for reMarkable does not have a published release or Vellum package
-  yet. For now, you need to build it on a computer and install it over SSH.
-</Callout>
-
 <Callout title="Developer Mode resets the tablet" type="warn">
   Installation needs root SSH access and runs third-party code inside the
   tablet's main UI process. On Paper Pro and Paper Pro Move, enabling [Developer Mode](https://developer.remarkable.com/documentation/developer-mode)
@@ -22,17 +17,35 @@ This is the official Saver integration. The tablet layer is an unofficial mod bu
   Mode step, but the mod is still unofficial and installed at your own risk.
 </Callout>
 
+## Video walkthrough
+
+<YouTube id="3qhMuqKFcDs" title="Install Saver on a reMarkable tablet" />
+
+The video walks through the same steps as this page. More Saver videos are on the
+[Saver YouTube channel](https://www.youtube.com/@saverapp).
+
 ## Compatibility
 
-| Device | Build | Tested status |
-| --- | --- | --- |
-| Paper Pro | aarch64 | reMarkable OS 3.27.3.0 |
-| Paper Pro Move | aarch64 | Untested (uses the Paper Pro build) |
-| reMarkable 2 | armv7 | reMarkable OS 3.25.0.142 and 3.26.0.68 |
-| reMarkable 1 | armv7 | Untested (uses the reMarkable 2 build) |
+`saver-remarkable` 0.1.1 is published in [Vellum](https://vellum.delivery)'s stable
+repository, so on a supported device installing takes two commands and no build
+toolchain.
+
+| Device | Build | Vellum package | Tested status |
+| --- | --- | --- | --- |
+| Paper Pro | aarch64 | Yes | reMarkable OS 3.27.3.0 |
+| Paper Pro Move | aarch64 | No, build from source | Untested (uses the Paper Pro build) |
+| reMarkable 2 | armv7 | Yes | reMarkable OS 3.25.0.142 and 3.26.0.68 |
+| reMarkable 1 | armv7 | No, build from source | Untested (uses the reMarkable 2 build) |
+
+The package marks itself incompatible with the untested devices instead of
+installing and then failing in some unclear way. [Build from source](#install-from-source)
+to try one of them.
 
 The tested AppLoad version is 0.5.3. Firmware updates can break xovi or the
-optional UI patches, even when the native app still uses the same build.
+optional UI patches, even when the native app still uses the same build. For
+that reason the optional `saver-remarkable-capture` package requires reMarkable
+OS 3.26 or newer and older than 3.28: on OS 3.25 the core app installs, but the
+sidebar entry and the handwriting action are unavailable.
 
 ## Before you start
 
@@ -44,20 +57,15 @@ You need:
 - Root SSH access to the tablet. Paper Pro and Paper Pro Move need Developer
   Mode. reMarkable 1 and 2 expose SSH without it.
 - [Vellum](https://github.com/vellum-dev/vellum) on the tablet. You can use [reManager](https://github.com/rmitchellscott/reManager) on Linux, macOS, or
-  Windows to bootstrap it. As a manual alternative, install xovi and AppLoad,
-  plus qt-resource-rebuilder if you want the optional UI actions.
-- A macOS or Linux computer with Bash, `ssh`, `scp`, Rust, a GNU Linux
-  cross-compiler for the tablet, and Qt 6's `rcc` tool. The installer is tested
-  on macOS. Linux is expected to work but is untested. Native Windows is not
-  currently documented.
+  Windows to bootstrap it.
 
-The optional sidebar and handwriting actions need qt-resource-rebuilder and
-its one-time hashtable setup. The core AppLoad app works without them.
+Vellum resolves xovi, AppLoad, and the rest of the dependency chain itself, so
+nothing else needs to be installed by hand.
 
-## Install from source
+## Install with Vellum
 
-Start in a clone of the [saver-remarkable repository](https://github.com/Saver-app/saver-remarkable) and run the commands below from its root. 
-In commands that use `TABLET`, replace it with `10.11.99.1` for USB or with the tablet's Wi-Fi address.
+In the commands below, replace `TABLET` with `10.11.99.1` for USB or with the
+tablet's Wi-Fi address.
 
 <Steps>
 <Step>
@@ -74,16 +82,87 @@ The password appears at the bottom of **Copyrights and Licenses** in the tablet'
 On current Paper Pro software, the full path is
 **Settings → General → Help → About → Copyrights and Licenses**.
 
-The installer automatically tries `~/.ssh/id_remarkable`. Add
-`-i ~/.ssh/id_remarkable` to manual `ssh` commands if that key is not already
-loaded by SSH.
-
-To deploy a Paper Pro or Paper Pro Move over Wi-Fi, first enable Wi-Fi SSH
+To install over Wi-Fi on a Paper Pro or Paper Pro Move, first enable Wi-Fi SSH
 while connected over USB:
 
 ```sh
 ssh root@10.11.99.1 rm-ssh-over-wlan on
 ```
+
+</Step>
+<Step>
+
+**Install Vellum**
+
+If Vellum is not on the tablet yet, install it with [reManager](https://github.com/rmitchellscott/reManager),
+which runs on Linux, macOS, and Windows.
+
+</Step>
+<Step>
+
+**Install the Saver app**
+
+```sh
+ssh root@TABLET '/home/root/.vellum/bin/vellum add saver-remarkable'
+```
+
+</Step>
+<Step>
+
+**Optionally add the sidebar entry and handwriting capture**
+
+```sh
+ssh root@TABLET '/home/root/.vellum/bin/vellum add saver-remarkable-capture'
+```
+
+This pulls in `qt-resource-rebuilder` and `qt-command-executor` automatically.
+It refuses to install next to the incompatible `retaskable-capture` or
+`convert-to-text-remover` mods, and it needs the one-time hashtable setup in
+[Finish the optional UI integration](#finish-the-optional-ui-integration).
+
+</Step>
+<Step>
+
+**Restart the tablet UI**
+
+```sh
+ssh root@TABLET \
+  'setsid bash /home/root/xovi/start >/tmp/xovi-start.log 2>&1 </dev/null &'
+```
+
+Saver now appears in the AppLoad launcher. Continue with [Link your Saver account](#link-your-saver-account).
+
+</Step>
+</Steps>
+
+## Install from source
+
+<Callout title="Most people don't need this">
+  Build from source only to develop on the app, or to run it on a device the
+  published package excludes.
+</Callout>
+
+Start in a clone of the [saver-remarkable repository](https://github.com/Saver-app/saver-remarkable) and run the commands below from its root. 
+You need a macOS or Linux computer with Bash, `ssh`, `scp`, Rust, a GNU Linux
+cross-compiler for the tablet, and Qt 6's `rcc` tool. The installer is tested
+on macOS. Linux is expected to work but is untested. Native Windows is not
+currently documented.
+
+<Steps>
+<Step>
+
+**Prepare the tablet**
+
+Enable root SSH access and install Vellum, as described above, then confirm
+that SSH works:
+
+```sh
+ssh root@10.11.99.1 true
+```
+
+The installer automatically tries `~/.ssh/id_remarkable`. Add
+`-i ~/.ssh/id_remarkable` to manual `ssh` commands if that key is not already
+loaded by SSH.
 
 </Step>
 <Step>
@@ -163,27 +242,30 @@ actions:
 SKIP_QMLDIFF=1 RCC=/path/to/rcc ./install-device.sh
 ```
 
-Use this mode if you have the incompatible `convert-to-text-remover` QML mod.
-It does not remove Saver patches from an earlier installation. See [Update or remove](https://github.com/Saver-app/saver-remarkable#update-or-remove)
+Use this mode if you have the incompatible `retaskable-capture` or
+`convert-to-text-remover` QML mod. It does not remove Saver patches from an
+earlier installation. See [Update or remove](https://github.com/Saver-app/saver-remarkable#update-or-remove)
 before switching an existing installation to core-only mode.
 
 </Step>
-<Step>
+</Steps>
 
-**Finish the optional UI integration**
+## Finish the optional UI integration
 
-If the installer reports that qt-resource-rebuilder has no hashtable, run:
+Either installation path needs this once, and only for the sidebar and
+handwriting actions. `qt-resource-rebuilder` needs a one-time hashtable build
+on the tablet. If the installer reports that the hashtable is missing, or if
+the sidebar entry does not appear after installing `saver-remarkable-capture`,
+run:
 
 ```sh
 ssh root@TABLET /home/root/xovi/rebuild_hashtable
 ```
 
-This restarts the tablet UI and may ask for the device passcode. Run the
-installer once more afterward so it can apply the sidebar and selection-menu
-patches.
-
-</Step>
-</Steps>
+This restarts the tablet UI and may ask for the device passcode. Afterwards,
+restart the UI through `/home/root/xovi/start` (Vellum install) or run the
+installer once more (source install) so the sidebar and selection-menu patches
+are applied.
 
 ## Link your Saver account
 
@@ -202,13 +284,28 @@ background sync or persistent offline cache on the tablet.
 ## Capture a handwritten todo
 
 Handwriting capture uses reMarkable's handwriting-recognition service. The
-tablet must be online, signed in to a reMarkable account, and have Saver's
-optional QML patches installed.
+tablet must be online, signed in to a reMarkable account, and have
+`saver-remarkable-capture` (or the equivalent source-built QML patches)
+installed.
 
 1. Select handwritten strokes with the notebook lasso tool.
 2. Tap the Saver checkmark action in the selection menu.
 3. Review the recognized text and choose a Saver space/list, or save directly
    with the defaults under **Saver → Settings**.
+
+## Update Saver
+
+To update a Vellum installation, upgrade and restart the tablet UI:
+
+```sh
+ssh root@TABLET '/home/root/.vellum/bin/vellum upgrade'
+ssh root@TABLET \
+  'setsid bash /home/root/xovi/start >/tmp/xovi-start.log 2>&1 </dev/null &'
+```
+
+To update a source installation, pull the latest code and rerun the same
+`install-device.sh` command. Either way, close and reopen Saver after the
+tablet UI has restarted.
 
 ## Troubleshooting
 
@@ -217,8 +314,13 @@ optional QML patches installed.
 - **Paper Pro Wi-Fi installation cannot connect:** enable it over USB with
   `ssh root@10.11.99.1 rm-ssh-over-wlan on`, then retry with the tablet's
   Wi-Fi address.
-- **The sidebar or handwriting action is missing:** rebuild the hashtable,
-  rerun the installer, and check for `convert-to-text-remover` or a
+- **`vellum add` cannot find the package:** refresh the index with
+  `vellum update`. If it is still missing, your device or OS version is one the
+  package excludes, see [Compatibility](#compatibility), and you need a source
+  build.
+- **The sidebar or handwriting action is missing:** check that
+  `saver-remarkable-capture` is installed, rebuild the hashtable, restart the
+  UI, and check for `retaskable-capture`, `convert-to-text-remover`, or a
   firmware/QML-patch mismatch.
 - **A reinstall appears unchanged:** close Saver completely and reopen it from
   AppLoad.
@@ -229,5 +331,5 @@ ssh root@TABLET \
   "journalctl -u xochitl --since '-5min' --no-pager | tail -n 200"
 ```
 
-For advanced diagnostics, update and removal instructions, security details,
-and development notes, see the [Saver for reMarkable README](https://github.com/Saver-app/saver-remarkable#readme).
+For advanced diagnostics, removal instructions, security details, and
+development notes, see the [Saver for reMarkable README](https://github.com/Saver-app/saver-remarkable#readme).
