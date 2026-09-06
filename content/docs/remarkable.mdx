@@ -11,10 +11,11 @@ This is the official Saver integration. The tablet layer is an unofficial mod bu
 
 <Callout title="Developer Mode resets the tablet" type="warn">
   Installation needs root SSH access and runs third-party code inside the
-  tablet's main UI process. On Paper Pro and Paper Pro Move, enabling [Developer Mode](https://developer.remarkable.com/documentation/developer-mode)
-  factory-resets the tablet and weakens its security. Sync or back up your
-  data before enabling it. reMarkable 1 and 2 do not require that Developer
-  Mode step, but the mod is still unofficial and installed at your own risk.
+  tablet's main UI process. On Paper Pro, Paper Pro Move, and Paper Pure,
+  enabling [Developer Mode](https://developer.remarkable.com/documentation/developer-mode)
+  factory-resets the tablet and weakens its security. Sync or back up your data
+  before enabling it. reMarkable 1 and 2 do not require that Developer Mode
+  step, but the mod is still unofficial and installed at your own risk.
 </Callout>
 
 ## Video walkthrough
@@ -26,26 +27,39 @@ The video walks through the same steps as this page. More Saver videos are on th
 
 ## Compatibility
 
-`saver-remarkable` 0.1.1 is published in [Vellum](https://vellum.delivery)'s stable
-repository, so on a supported device installing takes two commands and no build
-toolchain.
+`saver-remarkable` is published in [Vellum](https://vellum.delivery)'s stable
+repository, so installation on a supported device takes two commands and no
+build toolchain.
 
-| Device | Build | Vellum package | Tested status |
+| Device | Build | Core Vellum package | Status |
 | --- | --- | --- | --- |
-| Paper Pro | aarch64 | Yes | reMarkable OS 3.27.3.0 |
-| Paper Pro Move | aarch64 | No, build from source | Untested (uses the Paper Pro build) |
-| reMarkable 2 | armv7 | Yes | reMarkable OS 3.25.0.142 and 3.26.0.68 |
-| reMarkable 1 | armv7 | No, build from source | Untested (uses the reMarkable 2 build) |
+| Paper Pro | aarch64 | Yes | Core tested on reMarkable OS 3.27.3.0 |
+| Paper Pro Move | aarch64 | No, build from source | Core untested. Capture blocked by the core dependency |
+| Paper Pure | aarch64 | Yes | Core untested. Capture bindings unverified |
+| reMarkable 2 | armv7 | Yes | Core tested on OS 3.25.0.142, 3.26.0.68, and 3.27.3.0. QML patches apply on 3.27.3.0 |
+| reMarkable 1 | armv7 | Yes | Core untested. Capture bindings unverified |
 
-The package marks itself incompatible with the untested devices instead of
-installing and then failing in some unclear way. [Build from source](#install-from-source)
-to try one of them.
+reMarkable 1 and Paper Pure are expected to run the core app because each uses
+an existing build target and the same 1404 x 1872 display size as reMarkable 2.
+They have not yet been confirmed on hardware. A **Yes** above only describes
+the core package. It does not establish compatibility for handwriting capture.
+Paper Pro Move remains excluded because its different display dimensions may
+need UI changes. [Build from source](#install-from-source) to try it.
 
 The tested AppLoad version is 0.5.3. Firmware updates can break xovi or the
-optional UI patches, even when the native app still uses the same build. For
-that reason the optional `saver-remarkable-capture` package requires reMarkable
-OS 3.26 or newer and older than 3.28: on OS 3.25 the core app installs, but the
-sidebar entry and the handwriting action are unavailable.
+optional UI patches even when the native app still uses the same build.
+
+`saver-remarkable-capture` additionally requires all of the following:
+
+- reMarkable OS 3.26 or newer and older than 3.28
+- `qt-resource-rebuilder` and `qt-command-executor` on that device
+- a manual hashtable build after installation
+
+The capture patches bind to private xochitl file paths, component anchors, and
+handwriting APIs. These must be checked on every device and firmware release.
+The upper bound is a guard for unverified firmware, not a known incompatibility
+at 3.28. On OS 3.25 the core app can be installed from source, but the capture
+package, sidebar entry, and handwriting action are unavailable.
 
 ## Before you start
 
@@ -54,8 +68,8 @@ You need:
 - A Saver account and internet access on the tablet. All Saver operations and
   handwriting recognition need internet, normally over Wi-Fi. The USB network
   at `10.11.99.1` does not provide an internet route by itself.
-- Root SSH access to the tablet. Paper Pro and Paper Pro Move need Developer
-  Mode. reMarkable 1 and 2 expose SSH without it.
+- Root SSH access to the tablet. Paper Pro, Paper Pro Move, and Paper Pure need
+  Developer Mode. reMarkable 1 and 2 expose SSH without it.
 - [Vellum](https://github.com/vellum-dev/vellum) on the tablet. You can use [reManager](https://github.com/rmitchellscott/reManager) on Linux, macOS, or
   Windows to bootstrap it.
 
@@ -82,8 +96,8 @@ The password appears at the bottom of **Copyrights and Licenses** in the tablet'
 On current Paper Pro software, the full path is
 **Settings → General → Help → About → Copyrights and Licenses**.
 
-To install over Wi-Fi on a Paper Pro or Paper Pro Move, first enable Wi-Fi SSH
-while connected over USB:
+To install over Wi-Fi on a Paper Pro, Paper Pro Move, or Paper Pure, first
+enable Wi-Fi SSH while connected over USB:
 
 ```sh
 ssh root@10.11.99.1 rm-ssh-over-wlan on
@@ -172,7 +186,7 @@ loaded by SSH.
 Install the Rust target for your tablet:
 
 ```sh
-rustup target add aarch64-unknown-linux-gnu      # Paper Pro / Move
+rustup target add aarch64-unknown-linux-gnu      # Paper Pro / Move / Pure
 rustup target add armv7-unknown-linux-gnueabihf  # reMarkable 1 / 2
 ```
 
@@ -217,10 +231,10 @@ The installer syntax is `./install-device.sh [host] [target]`. Set `RCC` to
 the path from the previous step:
 
 ```sh
-# Paper Pro / Move over USB (the default host and target)
+# Paper Pro / Move / Pure over USB (the default host and target)
 RCC=/path/to/rcc ./install-device.sh
 
-# Paper Pro / Move over Wi-Fi
+# Paper Pro / Move / Pure over Wi-Fi
 RCC=/path/to/rcc ./install-device.sh 192.168.1.42
 
 # reMarkable 1 / 2 over USB
@@ -292,6 +306,9 @@ installed.
 2. Tap the Saver checkmark action in the selection menu.
 3. Review the recognized text and choose a Saver space/list, or save directly
    with the defaults under **Saver → Settings**.
+4. Optionally tap **Reminder** to choose a date, time, and repeating weekdays.
+   Reminders are available when the review dialog is shown. Keep **Ask before
+   saving handwritten todos** enabled in Saver settings if you want this step.
 
 ## Update Saver
 
@@ -311,7 +328,7 @@ tablet UI has restarted.
 
 - **Pairing or refresh cannot reach Saver:** connect the tablet itself to
   Wi-Fi. USB networking supports installation but does not provide internet.
-- **Paper Pro Wi-Fi installation cannot connect:** enable it over USB with
+- **Paper Pro family Wi-Fi installation cannot connect:** enable it over USB with
   `ssh root@10.11.99.1 rm-ssh-over-wlan on`, then retry with the tablet's
   Wi-Fi address.
 - **`vellum add` cannot find the package:** refresh the index with
