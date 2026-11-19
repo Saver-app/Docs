@@ -7,7 +7,11 @@ import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 export const docs = defineDocs({
   dir: 'content/docs',
   docs: {
-    schema: pageSchema,
+    // `seoTitle` is an optional, fuller title for search results. The sidebar
+    // and the page heading keep the short `title`.
+    schema: pageSchema.extend({
+      seoTitle: pageSchema.shape.title.optional(),
+    }),
     postprocess: {
       includeProcessedMarkdown: true,
     },
